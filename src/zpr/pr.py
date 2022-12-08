@@ -33,7 +33,7 @@ class PullRequestNode:
         if self.branch_name in map(lambda branch: branch.name, repo.branches):
             repo.git.branch("-D", self.branch_name)
         repo.git.checkout("-b", self.branch_name)
-        for commit in self.commits:
+        for commit in reversed(self.commits):
             commit.cherry_pick(repo)
         logging.info("Pushing to %s/%s", remote.name, self.branch_name)
         remote.push(refspec=f"{self.branch_name}:{self.branch_name}", force=True)
@@ -47,5 +47,6 @@ class PullRequestNode:
             string += "None"
         string += "\nCommits:"
         for commit in self.commits:
-            string += f"\n    {commit.commit.hexsha}"
+            title = commit.commit.message.split("\n")[0]
+            string += f"\n    {commit.commit.hexsha}: {title}"
         return string
