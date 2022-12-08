@@ -1,2 +1,4 @@
 .idea/
+src/zpr.egg-info/
+src/zpr/__pycache__/
 zephyr-pr-manager.iml
