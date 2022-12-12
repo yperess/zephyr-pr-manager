@@ -5,10 +5,12 @@ from zpr.commit import CommitNode
 
 
 class PullRequestNode:
+    repo: git.Repo
     commits: list[CommitNode]
     tag: str
 
-    def __init__(self, tag: str):
+    def __init__(self, repo: git.Repo, tag: str):
+        self.repo = repo
         self.commits = []
         self.tag = tag
 
@@ -26,17 +28,41 @@ class PullRequestNode:
             dependencies.update(commit.dependencies)
         return list(dependencies)
 
-    def push(self, repo: git.Repo, upstream_head: git.Head, remote: git.Remote):
+    def push(self, upstream_head: git.Head, remote: git.Remote):
+        if not self.__check_needs_push():
+            logging.info("Skipping push for %s, no changes detected", self.tag)
+            return
         upstream_head.checkout()
         # Delete the branch if exists
         logging.info("Creating a clean branch: %s", self.branch_name)
-        if self.branch_name in map(lambda branch: branch.name, repo.branches):
-            repo.git.branch("-D", self.branch_name)
-        repo.git.checkout("-b", self.branch_name)
+        if self.branch_name in map(lambda branch: branch.name, self.repo.branches):
+            self.repo.git.branch("-D", self.branch_name)
+        self.repo.git.checkout("-b", self.branch_name)
         for commit in reversed(self.commits):
-            commit.cherry_pick(repo)
+            commit.cherry_pick(self.repo)
         logging.info("Pushing to %s/%s", remote.name, self.branch_name)
         remote.push(refspec=f"{self.branch_name}:{self.branch_name}", force=True)
+
+    def __check_needs_push(self) -> bool:
+        branch: git.Head | None = None
+        for b in self.repo.branches:
+            if self.branch_name == b.name:
+                branch = b
+                break
+
+        if branch is None:
+            return True
+
+        # Checkout the existing branch
+        branch.checkout()
+        head = branch.commit
+        for pending_commit in self.commits:
+            if pending_commit != head:
+                return True
+            if len(head.parents) == 0:
+                return True
+            head = head.parents[0]
+        return False
 
     def __str__(self):
         deps = self.dependencies

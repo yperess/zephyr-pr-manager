@@ -14,6 +14,12 @@ def get_tag(string: str) -> str | None:
     return match.groups()[0]
 
 
+def cleanup_commit_message(message: str) -> str:
+    new_message = re.sub(kPrMatcher, "", message)
+    new_message = re.sub(kDepsMatcher, "", new_message)
+    return new_message.strip()
+
+
 class CommitNode:
     commit: git.Commit
     tag: str
@@ -31,9 +37,26 @@ class CommitNode:
         except Exception as err:
             repo.git.cherry_pick("--abort")
             raise err
-        new_message = re.sub(kPrMatcher, "", self.commit.message)
-        new_message = re.sub(kDepsMatcher, "", new_message)
-        repo.git.commit("--amend", "-m", new_message)
+        repo.git.commit("--amend", "-m", cleanup_commit_message(self.commit.message))
+
+    def __eq__(self, other):
+        if isinstance(other, git.Commit):
+            commit_message_changed = cleanup_commit_message(self.commit.message) != cleanup_commit_message(other.message)
+            if commit_message_changed:
+                logging.debug("Commit message 1:\n%s", cleanup_commit_message(self.commit.message))
+                logging.debug("Commit message 2:\n%s", cleanup_commit_message(other.message))
+            diff = self.commit.diff(other)
+            has_diff = len(diff) != 0
+            logging.debug("has diff? %s", has_diff)
+            if has_diff:
+                logging.debug("Diff:\n\t%s", diff)
+            return not commit_message_changed and not has_diff
+        if isinstance(other, CommitNode):
+            return self == other.commit
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other=other)
 
     def __parse_commit_message(self):
         self.tag = get_tag(self.commit.message)

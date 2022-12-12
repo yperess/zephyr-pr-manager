@@ -76,7 +76,7 @@ class PRManager:
                 continue
             logging.debug("Parsing commit with tag '%s'", commit.tag)
             if commit.tag not in prs:
-                prs[commit.tag] = PullRequestNode(tag=commit.tag)
+                prs[commit.tag] = PullRequestNode(repo=self.repo, tag=commit.tag)
             pr = prs[commit.tag]
             pr.add_commit(commit)
 
@@ -84,12 +84,11 @@ class PRManager:
         for pr in prs.values():
             if pr.dependencies:
                 logging.info("Skipping %s due to dependencies", pr.tag)
-                prs.pop(pr.tag)
                 continue
             print("*" * 80)
             print(pr)
 
-        if not prs:
+        if not prs or all(pr.dependencies for pr in prs.values()):
             print("No viable PRs found, goodbye!")
             return 0
 
@@ -103,9 +102,11 @@ class PRManager:
 
         remote = self.__resolve_remote()
         for pr in prs.values():
+            if pr.dependencies:
+                continue
             # noinspection PyBroadException
             try:
-                pr.push(repo=self.repo, upstream_head=self.zephyr_main_branch, remote=remote)
+                pr.push(upstream_head=self.zephyr_main_branch, remote=remote)
             except Exception:
                 logging.exception(f"Failed to push {pr.tag}")
                 self.original_branch.checkout()
