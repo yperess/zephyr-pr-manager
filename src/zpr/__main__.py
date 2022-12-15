@@ -92,15 +92,16 @@ class PRManager:
             print("No viable PRs found, goodbye!")
             return 0
 
-        if dry_run:
-            return 0
+        if not dry_run:
+            selection = input("Continue (y/n)? ")
+            if not selection_to_bool(selection):
+                print("Aborting...")
+                return -1
 
-        selection = input("Continue (y/n)? ")
-        if not selection_to_bool(selection):
-            print("Aborting...")
-            return -1
+            remote = self.__resolve_remote()
+        else:
+            remote = None
 
-        remote = self.__resolve_remote()
         for pr in prs.values():
             if pr.dependencies:
                 continue

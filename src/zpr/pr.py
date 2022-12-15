@@ -28,7 +28,7 @@ class PullRequestNode:
             dependencies.update(commit.dependencies)
         return list(dependencies)
 
-    def push(self, upstream_head: git.Head, remote: git.Remote):
+    def push(self, upstream_head: git.Head, remote: git.Remote | None):
         if not self.__check_needs_push():
             logging.info("Skipping push for %s, no changes detected", self.tag)
             return
@@ -40,8 +40,10 @@ class PullRequestNode:
         self.repo.git.checkout("-b", self.branch_name)
         for commit in reversed(self.commits):
             commit.cherry_pick(self.repo)
-        logging.info("Pushing to %s/%s", remote.name, self.branch_name)
-        remote.push(refspec=f"{self.branch_name}:{self.branch_name}", force=True)
+
+        if remote is not None:
+            logging.info("Pushing to %s/%s", remote.name, self.branch_name)
+            remote.push(refspec=f"{self.branch_name}:{self.branch_name}", force=True)
 
     def __check_needs_push(self) -> bool:
         branch: git.Head | None = None
