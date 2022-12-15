@@ -1,3 +1,4 @@
+import difflib
 import git
 import logging
 import re
@@ -18,6 +19,18 @@ def cleanup_commit_message(message: str) -> str:
     new_message = re.sub(kPrMatcher, "", message)
     new_message = re.sub(kDepsMatcher, "", new_message)
     return new_message.strip()
+
+
+def debug_print_diff(name: str, diff: git.Diff) -> None:
+    logging.debug("%s=%s", name, str(diff).replace(__old="\n", __new="\n        "))
+    if diff.a_blob is not None and diff.b_blob is not None:
+        differ = difflib.Differ()
+        a = str(diff.a_blob.data_stream.read().decode('utf-8')).splitlines(keepends=False)
+        b = str(diff.b_blob.data_stream.read().decode('utf-8')).splitlines(keepends=False)
+        for diff in differ.compare(a, b):
+            if diff.startswith("  "):
+                continue
+            logging.debug(diff)
 
 
 class CommitNode:
@@ -45,11 +58,24 @@ class CommitNode:
             if commit_message_changed:
                 logging.debug("Commit message 1:\n%s", cleanup_commit_message(self.commit.message))
                 logging.debug("Commit message 2:\n%s", cleanup_commit_message(other.message))
-            diff = self.commit.diff(other)
-            has_diff = len(diff) != 0
-            logging.debug("has diff? %s", has_diff)
-            if has_diff:
-                logging.debug("Diff:\n\t%s", diff)
+
+            has_diff: bool = False
+            self_diff_list: list[git.Diff] = self.commit.parents[0].diff(self.commit)
+            other_diff_list: list[git.Diff] = other.parents[0].diff(other)
+            if len(self_diff_list) != len(other_diff_list):
+                has_diff = True
+                logging.debug("Diff list has different lengths")
+
+            if not has_diff:
+                for idx, _ in enumerate(self_diff_list):
+                    if self_diff_list[idx].diff != other_diff_list[idx].diff:
+                        has_diff = True
+                        logging.debug("Diff doesn't match betweed %s and %s",
+                                      self.commit.hexsha, other.hexsha)
+                        debug_print_diff("self", self_diff_list[idx])
+                        debug_print_diff("other", other_diff_list[idx])
+                        break
+            logging.debug("has_diff=%s", has_diff)
             return not commit_message_changed and not has_diff
         if isinstance(other, CommitNode):
             return self == other.commit
