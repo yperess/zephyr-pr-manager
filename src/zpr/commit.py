@@ -58,25 +58,26 @@ class CommitNode:
             if commit_message_changed:
                 logging.debug("Commit message 1:\n%s", cleanup_commit_message(self.commit.message))
                 logging.debug("Commit message 2:\n%s", cleanup_commit_message(other.message))
+                return False
 
-            has_diff: bool = False
-            self_diff_list: list[git.Diff] = self.commit.parents[0].diff(self.commit)
-            other_diff_list: list[git.Diff] = other.parents[0].diff(other)
-            if len(self_diff_list) != len(other_diff_list):
-                has_diff = True
-                logging.debug("Diff list has different lengths")
+            diff_string = self.commit.repo.git.range_diff(f"{self.commit.parents[0].hexsha}..{self.commit.hexsha}",
+                                                          f"{other.parents[0].hexsha}..{other.hexsha}",
+                                                          "--no-color").splitlines()[1:]
+            # Ignore the commit message since it's compared above
+            try:
+                commit_msg_start_idx = diff_string.index("    @@ Commit message")
+                commit_msg_end_idx = diff_string.index("    @@", commit_msg_start_idx+1)
+                del diff_string[commit_msg_start_idx:commit_msg_end_idx+1]
+            except ValueError:
+                pass
 
-            if not has_diff:
-                for idx, _ in enumerate(self_diff_list):
-                    if self_diff_list[idx].diff != other_diff_list[idx].diff:
-                        has_diff = True
-                        logging.debug("Diff doesn't match betweed %s and %s",
-                                      self.commit.hexsha, other.hexsha)
-                        debug_print_diff("self", self_diff_list[idx])
-                        debug_print_diff("other", other_diff_list[idx])
-                        break
-            logging.debug("has_diff=%s", has_diff)
-            return not commit_message_changed and not has_diff
+            for line in diff_string:
+                logging.debug(line)
+            if diff_string:
+                logging.debug("Diff doesn't match between %s and %s",
+                              self.commit.hexsha, other.hexsha)
+                return False
+            return True
         if isinstance(other, CommitNode):
             return self == other.commit
         return False
