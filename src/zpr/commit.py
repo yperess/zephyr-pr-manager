@@ -60,22 +60,10 @@ class CommitNode:
                 logging.debug("Commit message 2:\n%s", cleanup_commit_message(other.message))
                 return False
 
-            diff_string = self.commit.repo.git.range_diff(f"{self.commit.parents[0].hexsha}..{self.commit.hexsha}",
-                                                          f"{other.parents[0].hexsha}..{other.hexsha}",
-                                                          "--no-color").splitlines()[1:]
-            # Ignore the commit message since it's compared above
-            try:
-                commit_msg_start_idx = diff_string.index("    @@ Commit message")
-                commit_msg_end_idx = diff_string.index("    @@", commit_msg_start_idx+1)
-                del diff_string[commit_msg_start_idx:commit_msg_end_idx+1]
-            except ValueError:
-                pass
-
-            for line in diff_string:
-                logging.debug(line)
-            if diff_string:
-                logging.debug("Diff doesn't match between %s and %s",
-                              self.commit.hexsha, other.hexsha)
+            diff1 = self.commit.repo.git.diff(f"{self.commit.parents[0].hexsha}..{self.commit.hexsha}", "--no-color")
+            diff2 = self.commit.repo.git.diff(f"{other.parents[0].hexsha}..{other.hexsha}", "--no-color")
+            if diff1 != diff2:
+                logging.debug("Commit change detected:\n<<<<<<<<<<\n%s\n>>>>>>>>>>\n%s", diff1, diff2)
                 return False
             return True
         if isinstance(other, CommitNode):
