@@ -59,6 +59,7 @@ class PullRequestNode:
         branch.checkout()
         head = branch.commit
         for pending_commit in self.commits:
+            logging.debug("Comparing %s vs. %s", pending_commit.commit.hexsha, head.hexsha)
             if pending_commit != head:
                 return True
             if len(head.parents) == 0:

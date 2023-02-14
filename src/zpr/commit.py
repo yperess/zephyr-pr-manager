@@ -18,6 +18,7 @@ def get_tag(string: str) -> str | None:
 def cleanup_commit_message(message: str) -> str:
     new_message = re.sub(kPrMatcher, "", message)
     new_message = re.sub(kDepsMatcher, "", new_message)
+    new_message = re.sub(r'(\n+)', "\n", new_message)
     return new_message.strip()
 
 
@@ -54,14 +55,27 @@ class CommitNode:
 
     def __eq__(self, other):
         if isinstance(other, git.Commit):
-            commit_message_changed = cleanup_commit_message(self.commit.message) != cleanup_commit_message(other.message)
-            if commit_message_changed:
-                logging.debug("Commit message 1:\n%s", cleanup_commit_message(self.commit.message))
-                logging.debug("Commit message 2:\n%s", cleanup_commit_message(other.message))
+            commit_msg1 = cleanup_commit_message(self.commit.message)
+            commit_msg2 = cleanup_commit_message(other.message)
+            if commit_msg1 != commit_msg2:
+                logging.debug("Commit message 1:\n%s", commit_msg1)
+                logging.debug("Commit message 2:\n%s", commit_msg2)
+                for i, s in enumerate(difflib.ndiff(commit_msg1, commit_msg2)):
+                    if s[0] == '': continue
+                    elif s[0] == '-':
+                        logging.debug("Delete '%s'(%d) from position %d", s[-1], ord(s[-1]), i)
+                    elif s[0] == '+':
+                        logging.debug("Add '%s'(%d) to position %d", s[-1], ord(s[-1]), i)
                 return False
 
             diff1 = self.commit.repo.git.diff(f"{self.commit.parents[0].hexsha}..{self.commit.hexsha}", "--no-color")
             diff2 = self.commit.repo.git.diff(f"{other.parents[0].hexsha}..{other.hexsha}", "--no-color")
+
+            # Remove the index line
+            diff1 = re.sub(pattern=r'(index [0-9a-fA-F]{10}\.\.[0-9a-fA-F]{10} \d{6}\n)', repl='', string=diff1,
+                           count=1)
+            diff2 = re.sub(pattern=r'(index [0-9a-fA-F]{10}\.\.[0-9a-fA-F]{10} \d{6}\n)', repl='', string=diff2,
+                           count=1)
             if diff1 != diff2:
                 logging.debug("Commit change detected:\n<<<<<<<<<<\n%s\n>>>>>>>>>>\n%s", diff1, diff2)
                 return False
