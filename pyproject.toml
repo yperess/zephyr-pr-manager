@@ -4,3 +4,20 @@ requires = [
     'wheel',
 ]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "zpr"
+dynamic = ["version"]
+description = "Zephyr PR manager"
+readme = "README.md"
+authors = [
+    {name = "Yuval Peress", email = "peress@google.com"},
+]
+
+[tool.poetry]
+name = "zpr"
+version = "0.1.0"
+description = "Zephyr PR manager"
+authors = [
+    "Yuval Peress <peress@google.com>"
+]

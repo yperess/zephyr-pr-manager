@@ -18,7 +18,7 @@ def get_tag(string: str) -> str | None:
 def cleanup_commit_message(message: str) -> str:
     new_message = re.sub(kPrMatcher, "", message)
     new_message = re.sub(kDepsMatcher, "", new_message)
-    new_message = re.sub(r'(\n+)', "\n", new_message)
+    new_message = re.sub(r'(\n{3,})', "\n\n", new_message)
     return new_message.strip()
 
 
